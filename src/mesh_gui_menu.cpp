@@ -132,6 +132,14 @@ bool MeshGuiMenu::updatePath() {
 	Eigen::RowVector3d vertex_source_2 = mesh_vertices_.row( path_source_2_ );
 	Eigen::RowVector3d vertex_target = mesh_vertices_.row( path_target_ );
 
+	// Test the path between points outside the mesh:
+	if ( surface_points_ )
+	{
+		// Points on the surface of the cube:
+		vertex_source_1 << 0.3, 0.7, 1.0;
+		vertex_target   << 0.7, 0.3, 0.0;
+	}
+
 
 	Eigen::MatrixXd path_vertices = vertex_target;
 	if ( path_show_ )
@@ -146,7 +154,10 @@ bool MeshGuiMenu::updatePath() {
 		path_search_ptr_->setMetric( metric );
 
 		// Search for the shortest path:
-		path_vertices = path_search_ptr_->A_star_search( { vertex_source_1, vertex_source_2 }, vertex_target );
+		if ( surface_points_ )
+			path_vertices = path_search_ptr_->A_star_search( { vertex_source_1 }, vertex_target );
+		else
+			path_vertices = path_search_ptr_->A_star_search( { vertex_source_1, vertex_source_2 }, vertex_target );
 	}
 
 
@@ -160,7 +171,10 @@ bool MeshGuiMenu::updatePath() {
 
 	// Draw the path:
 	viewer->data( path_id_ ).set_edges( path_vertices, path_edges, path_colors );
-	viewer->data( path_id_ ).line_width = 1.0f;
+	if ( surface_points_ )
+		viewer->data( path_id_ ).line_width = 10.0f;
+	else
+		viewer->data( path_id_ ).line_width = 1.0f;
 	viewer->data( path_id_ ).is_visible = path_show_;
 	viewer->data( path_id_ ).dirty = igl::opengl::MeshGL::DIRTY_ALL;
 
@@ -233,29 +247,41 @@ void MeshGuiMenu::drawMenu() {
         // This slider allows to select the path's first source vertex
         if (ImGui::SliderInt("Source 1", &path_source_1_, 0,
                              mesh_vertices_.rows() - 1)) {
+			surface_points_ = false;
             updatePath();
 			updateMeshColors();
         }
         // This slider allows to select the path's second source vertex
         if (ImGui::SliderInt("Source 2", &path_source_2_, 0,
                              mesh_vertices_.rows() - 1)) {
+			surface_points_ = false;
             updatePath();
 			updateMeshColors();
         }
         // This slider allows to select the path's target vertex
         if (ImGui::SliderInt("Target", &path_target_, 0,
                              mesh_vertices_.rows() - 1)) {
+			surface_points_ = false;
             updatePath();
         }
         // Toggle visibility of computed path on mesh
         if (ImGui::Checkbox("Show path", &path_show_)) {
+            updatePath();
             viewer->data(path_id_).is_visible = path_show_;
             viewer->data(path_id_).dirty = igl::opengl::MeshGL::DIRTY_ALL;
         }
 
+		// Test the path between points outside the mesh:
+		if ( ImGui::Button( "Surface-point test", ImVec2( -1, 0 ) ) )
+		{
+			surface_points_ = true;
+            updatePath();
+			updateMeshColors();
+		}
         // Set baseline source and target points to be able to compare the running time:
 		if ( ImGui::Button( "Baseline test", ImVec2( -1, 0 ) ) )
 		{
+			surface_points_ = false;
 			path_source_1_ = BASELINE_SOURCE_1;
 			path_source_2_ = BASELINE_SOURCE_2;
 			path_target_   = BASELINE_TARGET;

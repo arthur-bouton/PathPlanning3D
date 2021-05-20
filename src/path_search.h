@@ -4,6 +4,7 @@
 #include <Eigen/Core>
 #include <vector>
 #include <set>
+#include <array>
 #include <memory>
 
 
@@ -33,12 +34,13 @@ class PathSearch
 	typedef struct node
 	{
 		
-		Eigen::RowVector3d vertex;             // Corresponding vertex.
-		std::set<struct node*> adjacent_nodes; // Pointers to the adjacent nodes. The set ensures their uniqueness.
-		std::vector<struct node*> path;        // Current best path to this node.
-		float g_score, f_score;                // Backward cost and priority of the node.
-		enum { unseen, open, closed } status;  // Current status of the node.
-
+		Eigen::RowVector3d vertex;                     // Corresponding vertex.
+		std::set<struct node*> adjacent_nodes;         // Pointers to the adjacent nodes. The set ensures their uniqueness.
+		std::vector<struct node*> path;                // Current best path to this node.
+		float g_score, f_score;                        // Backward cost and priority of the node.
+		enum { unseen, open, closed } status = unseen; // Current status of the node.
+		std::vector<std::array<struct node*,2>> faces; // Pointers the nodes of each face this node is part of
+		                                               // (only used when a vertex is not part of the mesh).
 		node( Eigen::RowVector3d vert ) : vertex( vert ) {}
 	} node_t;
 
@@ -48,6 +50,7 @@ class PathSearch
 	void reset_node_table();
 
 	node_t* findNode( const Eigen::RowVector3d& vertex );
+	void findFaceNodes( const Eigen::RowVector3d& vertex, node_t* face_nodes[3] );
 	Eigen::MatrixXd translatePath( const std::vector<node_t*>& path_nodes ) const;
 
 	std::function<float(Eigen::MatrixXd,Eigen::MatrixXd)> metric_;
@@ -55,6 +58,8 @@ class PathSearch
 
 	// Table that translates the original vertex indices to the corresponding node pointers:
 	std::vector<node_t*> duplicate_table_;
+	// Number of unique vertices in the initial the mesh:
+	size_t n_mesh_vertices_ = 0;
 };
 
 

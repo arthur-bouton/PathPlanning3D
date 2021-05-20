@@ -1,6 +1,12 @@
 #include "path_search.h"
 
+#include <queue>
+#include <Eigen/Dense>
 #include <chrono>
+
+
+// Maximum number of extra entries that can be added to the node table:
+#define EXTRA_VERTICES_MAX 3
 
 
 PathSearch::PathSearch( const Eigen::MatrixXd& mesh_vertices,
@@ -26,7 +32,7 @@ PathSearch::PathSearch( const Eigen::MatrixXd& mesh_vertices,
 	//---------------------------------------------//
 
 	// Reserve enough memory for the node table to guarantee the validity of its pointers:
-	node_table_.reserve( mesh_vertices.rows() );
+	node_table_.reserve( mesh_vertices.rows() + EXTRA_VERTICES_MAX );
 
 	// Register every vertex of the mesh once:
 	duplicate_table_ = std::vector<node_t*>( mesh_vertices.rows(), nullptr );
@@ -49,6 +55,9 @@ PathSearch::PathSearch( const Eigen::MatrixXd& mesh_vertices,
 		}
 	}
 
+	// Register the number of unique vertices in the mesh:
+	n_mesh_vertices_ = node_table_.size();
+
 	// Register the pointers to the adjacent nodes of each vertex:
 	for ( Eigen::Index i = 0 ; i < mesh_faces.rows() ; ++i )
 		for ( Eigen::Index j = 0 ; j < mesh_faces.cols() ; ++j )
@@ -58,21 +67,36 @@ PathSearch::PathSearch( const Eigen::MatrixXd& mesh_vertices,
 			// Pointer to the corresponding node in the node table:
 			node_t* node_ptr = duplicate_table_[vertex_id];
 
-			for ( int k : { 1, 2 } )
+			std::array<node_t*,2> face_nodes;
+
+			for ( int k : { 0, 1 } )
 			{
 				// Original index of an adjacent vertex:
-				unsigned int adjacent_vertex_id = mesh_faces( i, ( j + k )%3 );
+				unsigned int adjacent_vertex_id = mesh_faces( i, ( j + k + 1 )%3 );
 				// Pointer to the corresponding node in the node table:
 				node_t* adjacent_node_ptr = duplicate_table_[adjacent_vertex_id];
 				// Add the adjacent-node pointer to the set of the current node:
 				node_ptr->adjacent_nodes.insert( adjacent_node_ptr );
+				// Store the pointer to the other node that compose this face:
+				face_nodes[k] = adjacent_node_ptr;
 			}
+			// Add the face to the nodes that are part of it:
+			node_ptr->faces.push_back( face_nodes );
 		}
 }
 
 
 void PathSearch::reset_node_table()
 {
+	// Remove every link to the extra vertices that don't belong to the initial mesh:
+	for ( std::size_t i = n_mesh_vertices_ ; i < node_table_.size() ; ++i )
+		for ( node_t* adjacent_node_ptr : node_table_[i].adjacent_nodes )
+			adjacent_node_ptr->adjacent_nodes.erase( &node_table_[i] );
+
+	// Remove the extra vertices that don't belong to the initial mesh:
+	node_table_.resize( n_mesh_vertices_, node_t( Eigen::RowVector3d() ) );
+
+	// Reset each node:
 	for ( node_t& node : node_table_ )
 	{
 		node.path.clear();
@@ -87,8 +111,74 @@ PathSearch::node_t* PathSearch::findNode( const Eigen::RowVector3d& vertex )
 	for ( node_t& node : node_table_ )
 		if ( node.vertex == vertex )
 			return &node;
+
+	// Check if we don't risk a reallocation of the node table:
+	if ( node_table_.size() == node_table_.capacity() )
+		throw std::runtime_error( "Too many vertices are different from the initial mesh vertices" );
+
+	// If the vertex doesn't belong to the initial mesh, search which face it belongs to:
+	node_t* face_nodes[3];
+	findFaceNodes( vertex, face_nodes );
 	
-	throw std::runtime_error( "Vertex not found" );
+	// Add a temporary node to the node table corresponding to this extra vertex:
+	node_t new_node( vertex );
+	for ( node_t* face_node_ptr : face_nodes )
+		new_node.adjacent_nodes.insert( face_node_ptr );
+	node_table_.push_back( new_node );
+
+	// Add the new node as an adjacent node for the nodes of the face it belongs to:
+	for ( node_t* face_node_ptr : face_nodes )
+		face_node_ptr->adjacent_nodes.insert( &node_table_.back() );
+
+	return &node_table_.back();
+}
+
+
+void PathSearch::findFaceNodes( const Eigen::RowVector3d& vertex, PathSearch::node_t* face_nodes[3] )
+{
+	// Sort the mesh vertices by their distance from the given vertex:
+	typedef struct dist_id { float distance; node_t* node_ptr; } dist_id_t;
+	auto cmp = []( dist_id_t left, dist_id_t right ) { return left.distance > right.distance; };
+	std::priority_queue<dist_id,std::vector<dist_id>,decltype(cmp)> distance_queue( cmp );
+
+	for ( node_t& node : node_table_ )
+	{
+		dist_id_t new_entry;
+		new_entry.node_ptr = &node;
+		new_entry.distance = ( vertex - node.vertex ).norm();
+		distance_queue.push( new_entry );
+	}
+
+	// Search among every node, starting by the closest ones to the vertex:
+	while ( !distance_queue.empty() )
+	{
+		node_t* node_ptr = distance_queue.top().node_ptr;
+
+		// Search among the faces the vertex of this node belongs to:
+		for ( const std::array<node_t*,2>& face : node_ptr->faces )
+		{
+			// Gather the three vertices of this face:
+			face_nodes[0] = node_ptr;
+			face_nodes[1] = face[0];
+			face_nodes[2] = face[1];
+
+			// Compute the cross product with each edge of the current face:
+			Eigen::Matrix3d normals;
+			for ( int i = 0 ; i < 3 ; ++i )
+				normals.row( i ) = ( face_nodes[i]->vertex - vertex ).cross( face_nodes[(i+1)%3]->vertex - face_nodes[i]->vertex );
+
+			// Check if the cross-product results are pointing toward the same direction,
+			// which means that the vertex is inside the current face
+			// (if the cross products are also collinear, it means that the vertex lies exactly on the triangle surface):
+			if ( normals.row( 0 ).dot( normals.row( 1 ) )*normals.row( 1 ).dot( normals.row( 2 ) ) >= 0
+			  && normals.row( 1 ).dot( normals.row( 2 ) )*normals.row( 2 ).dot( normals.row( 3 ) ) >= 0 )
+				return;
+		}
+
+		distance_queue.pop();
+	}
+
+	throw std::runtime_error( "The vertex don't belong to the mesh" );
 }
 
 
@@ -113,7 +203,7 @@ Eigen::MatrixXd PathSearch::A_star_search( const std::vector<Eigen::RowVector3d>
 	// The nodes will be sorted according to their f-score:
 	std::multiset<node_t*,decltype(cmp)> openNodes( cmp );
 
-	for ( Eigen::RowVector3d start_vertex : start_vertices )
+	for ( const Eigen::RowVector3d& start_vertex : start_vertices )
 	{
 		// Initialize the starting node:
 		node_t* start_node_ptr = findNode( start_vertex );
@@ -202,7 +292,7 @@ Eigen::VectorXd PathSearch::dijkstra_scan( const std::vector<Eigen::RowVector3d>
 	std::multiset<node_t*,decltype(cmp)> openNodes( cmp );
 
 
-	for ( Eigen::RowVector3d source_vertex : sources )
+	for ( const Eigen::RowVector3d& source_vertex : sources )
 	{
 		// Initialize the source node:
 		node_t* source_node_ptr = findNode( source_vertex );
