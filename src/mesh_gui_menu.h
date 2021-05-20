@@ -5,6 +5,9 @@
 #include <Eigen/Core>
 #include <string>
 
+#include "path_search.h"
+
+
 namespace squaremind {
 
 namespace iggui = igl::opengl::glfw::imgui;
@@ -39,5 +42,7 @@ class MeshGuiMenu : public iggui::ImGuiMenu {
     int path_source_2_ = 1;
     int path_target_ = 7;
     bool path_show_ = false;
+	float metric_factor_ = 0;
+	PathSearch::ptr_t path_search_ptr_;
 };
 }  // namespace squaremind

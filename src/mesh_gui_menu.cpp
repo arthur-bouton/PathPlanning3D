@@ -8,6 +8,12 @@
 #include <igl/writePLY.h>
 #include <imgui/imgui.h>
 
+
+#define BASELINE_SOURCE_1  2934
+#define BASELINE_SOURCE_2 12439
+#define BASELINE_TARGET    5868
+
+
 namespace squaremind {
 
 void MeshGuiMenu::init(igl::opengl::glfw::Viewer* viewer) {
@@ -40,9 +46,19 @@ bool MeshGuiMenu::updateMesh() {
     viewer->data(mesh_id_).clear();
     viewer->data(mesh_id_).set_mesh(mesh_vertices_, mesh_faces_);
     updateMeshEdges();
-    updateMeshColors();
     viewer->data(mesh_id_).dirty = igl::opengl::MeshGL::DIRTY_ALL;
     viewer->data(mesh_id_).double_sided = true;
+
+
+    std::cout << "[MeshGuiMenu::updateMesh] Preprocessing mesh..." << std::endl;
+
+	// Initialize the search algorithm with the new vertices and faces:
+	path_search_ptr_ = PathSearch::ptr_t( new PathSearch( mesh_vertices_, mesh_faces_ ) );
+
+    std::cout << "[MeshGuiMenu::updateMesh] Mesh ready" << std::endl;
+
+
+    updateMeshColors();
     return updatePath();
 }
 
@@ -52,9 +68,53 @@ void MeshGuiMenu::updateMeshEdges() {
 }
 
 void MeshGuiMenu::updateMeshColors() {
-    // this function can be used to add color on the model w.r.t distances to
-    // source points
-    mesh_colors_ = Eigen::MatrixXd::Constant(1, 3, 1.0);
+    // reset source/target if outside the mesh vertices
+    if (path_source_1_ >= mesh_vertices_.rows()) path_source_1_ = 0;
+    if (path_source_2_ >= mesh_vertices_.rows()) path_source_2_ = 0;
+    if (path_target_ >= mesh_vertices_.rows()) path_target_ = 0;
+
+
+	// Define the source vertices:
+	Eigen::RowVector3d vertex_source_1 = mesh_vertices_.row( path_source_1_ );
+	Eigen::RowVector3d vertex_source_2 = mesh_vertices_.row( path_source_2_ );
+
+
+	if ( use_color_distance_ )
+	{
+		// Get the distances of all vertices from the sources:
+		Eigen::VectorXd distances = path_search_ptr_->dijkstra_scan( { vertex_source_1, vertex_source_2 } );
+
+		float distance_max = distances.maxCoeff();
+
+		// Fill the color matrix:
+		mesh_colors_ = Eigen::MatrixXd( mesh_vertices_.rows(), 3 );
+		for ( std::size_t i = 0 ; i < distances.size() ; ++i )
+		{
+			float normalized_distance = distances[i]/distance_max;
+
+			// Convert the normalized distance to a rainbow colormap:
+			float a = ( 1 - normalized_distance )/0.25;
+			int X = floor( a );
+			float Y = a - X;
+			float R, G, B;
+			switch( X )
+			{
+				case 0: R = 1;   G= Y;   B = 0; break;
+				case 1: R = 1-Y; G= 1;   B = 0; break;
+				case 2: R = 0;   G= 1;   B = Y; break;
+				case 3: R = 0;   G= 1-Y; B = 1; break;
+				case 4: R = 0;   G= 0;   B = 1; break;
+			}
+
+			mesh_colors_.row( i ) = Eigen::RowVector3d( R, G, B );
+		}
+	}
+	else
+		// Otherwise, set all vertices white:
+		mesh_colors_ = Eigen::MatrixXd::Constant( 1, 3, 1.0 );
+
+
+	// Apply the colors:
     viewer->data(mesh_id_).set_colors(mesh_colors_);
     viewer->data(mesh_id_).dirty = igl::opengl::MeshGL::DIRTY_ALL;
 }
@@ -66,30 +126,44 @@ bool MeshGuiMenu::updatePath() {
     if (path_source_2_ >= mesh_vertices_.rows()) path_source_2_ = 0;
     if (path_target_ >= mesh_vertices_.rows()) path_target_ = 0;
 
-    /** Add your path computation function calls here
-     *
-     *
-     *
-     *
-     *
-     **/
-    // updateMeshColors();
 
-    // Quick example to draw the path :
-    // 1. Update a matrix with the set of vertices visited by your path
-    // Eigen::MatrixXd path_vertices(vertices_in_my_path.size(), 3);
-    // path_vertices = ...
-    // 2. Define the connectivity between each vertices to create edges
-    // Eigen::MatrixXi path_edges(vertices.size() - 1, 2);
-    // path_edges = ...
-    // 3. Set a color to your trajectory
-    // Eigen::MatrixXd path_colors = ... 1.0, 0.0, 0.0 ... (red)
-    // 4. Set path in viewer
-    // viewer->data(path_id_).set_edges(path_vertices, path_edges,
-    //                                      path_colors);
-    // viewer->data(path_id_).line_width = 2.0f;
-    // 5. Draw
-    // viewer->data(path_id_).dirty = igl::opengl::MeshGL::DIRTY_ALL;
+	// Define the starting and goal vertices:
+	Eigen::RowVector3d vertex_source_1 = mesh_vertices_.row( path_source_1_ );
+	Eigen::RowVector3d vertex_source_2 = mesh_vertices_.row( path_source_2_ );
+	Eigen::RowVector3d vertex_target = mesh_vertices_.row( path_target_ );
+
+
+	Eigen::MatrixXd path_vertices = vertex_target;
+	if ( path_show_ )
+	{
+		// Change the metric used to compute the cost of the trajectory:
+		auto metric = [=]( Eigen::RowVector3d vertex_1, Eigen::RowVector3d vertex_2 )
+		{
+			Eigen::RowVector3d vec = vertex_2 - vertex_1;
+			// Add a penalty based on the deviation of the trajectory relative to the horizontal origin plane:
+			return vec.norm() + fabs( vertex_2[2] )*metric_factor_;
+		};
+		path_search_ptr_->setMetric( metric );
+
+		// Search for the shortest path:
+		path_vertices = path_search_ptr_->A_star_search( { vertex_source_1, vertex_source_2 }, vertex_target );
+	}
+
+
+	// Fill the edge matrix:
+	Eigen::MatrixXi path_edges( path_vertices.rows() - 1, 2 );
+	for ( std::size_t i = 0 ; i < path_vertices.rows() - 1 ; ++i )
+		path_edges.row( i ) << i, i + 1;
+
+	// Color of the path:
+	const Eigen::RowVector3d path_colors( 1.0, 0.0, 0.0 );
+
+	// Draw the path:
+	viewer->data( path_id_ ).set_edges( path_vertices, path_edges, path_colors );
+	viewer->data( path_id_ ).line_width = 1.0f;
+	viewer->data( path_id_ ).is_visible = path_show_;
+	viewer->data( path_id_ ).dirty = igl::opengl::MeshGL::DIRTY_ALL;
+
     return true;
 }
 
@@ -160,11 +234,13 @@ void MeshGuiMenu::drawMenu() {
         if (ImGui::SliderInt("Source 1", &path_source_1_, 0,
                              mesh_vertices_.rows() - 1)) {
             updatePath();
+			updateMeshColors();
         }
         // This slider allows to select the path's second source vertex
         if (ImGui::SliderInt("Source 2", &path_source_2_, 0,
                              mesh_vertices_.rows() - 1)) {
             updatePath();
+			updateMeshColors();
         }
         // This slider allows to select the path's target vertex
         if (ImGui::SliderInt("Target", &path_target_, 0,
@@ -176,7 +252,22 @@ void MeshGuiMenu::drawMenu() {
             viewer->data(path_id_).is_visible = path_show_;
             viewer->data(path_id_).dirty = igl::opengl::MeshGL::DIRTY_ALL;
         }
-        // You can add here any other elements to configure your algorihtm
+
+        // Set baseline source and target points to be able to compare the running time:
+		if ( ImGui::Button( "Baseline test", ImVec2( -1, 0 ) ) )
+		{
+			path_source_1_ = BASELINE_SOURCE_1;
+			path_source_2_ = BASELINE_SOURCE_2;
+			path_target_   = BASELINE_TARGET;
+            updatePath();
+			updateMeshColors();
+		}
+		// Slider changing the metric used to compute the optimal path:
+        if ( ImGui::SliderFloat( "Metric factor", &metric_factor_, 0, 1 ) )
+		{
+            updatePath();
+			updateMeshColors();
+		}
     }
 }
 
