@@ -82,7 +82,7 @@ void MeshGuiMenu::updateMeshColors() {
 	if ( use_color_distance_ )
 	{
 		// Get the distances of all vertices from the sources:
-		Eigen::VectorXd distances = path_search_ptr_->dijkstra_scan( { vertex_source_1, vertex_source_2 } );
+		Eigen::VectorXd distances = path_search_ptr_->dijkstra_scan( { vertex_source_1, vertex_source_2 }, mesh_vertices_ );
 
 		float distance_max = distances.maxCoeff();
 

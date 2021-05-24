@@ -3,6 +3,7 @@
 
 #include <Eigen/Core>
 #include <vector>
+#include <unordered_map>
 #include <set>
 #include <array>
 #include <memory>
@@ -23,8 +24,8 @@ class PathSearch
 	Eigen::MatrixXd A_star_search( const std::vector<Eigen::RowVector3d>& start_vertices,
 	                               const Eigen::RowVector3d& goal_vertex );
 
-	// Return the distance of each vertex from the source(s):
-	Eigen::VectorXd dijkstra_scan( const std::vector<Eigen::RowVector3d>& sources );
+	// Return the distance of each vertex of mesh_vertices from the source(s):
+	Eigen::VectorXd dijkstra_scan( const std::vector<Eigen::RowVector3d>& sources, const Eigen::MatrixXd& mesh_vertices );
 
 	inline void setMetric(    const std::function<float(Eigen::MatrixXd,Eigen::MatrixXd)>& metric )    { metric_ = metric; };
 	inline void setHeuristic( const std::function<float(Eigen::MatrixXd,Eigen::MatrixXd)>& heuristic ) { heuristic_ = heuristic; };
@@ -42,10 +43,26 @@ class PathSearch
 		std::vector<std::array<struct node*,2>> faces; // Pointers the nodes of each face this node is part of
 		                                               // (only used when a vertex is not part of the mesh).
 		node( Eigen::RowVector3d vert ) : vertex( vert ) {}
+		node() {}
 	} node_t;
 
-	// Table that stores all the nodes, each corresponding to a unique vertex of the mesh:
-	std::vector<node_t> node_table_;
+	struct vector_hash
+	{
+		// Hash function to store the nodes in the node table according to their vertex coordinates:
+		std::size_t operator()( const Eigen::RowVector3d& vector ) const
+		{
+			std::size_t seed = 0;
+
+			for ( std::size_t i = 0 ; i < vector.size() ; ++i )
+				seed ^= hasher( vector[i] ) + 0x9e3779b9 + ( seed << 6 ) + ( seed >> 2 );
+
+			return seed;
+		}
+		std::hash<double> hasher;
+	};
+
+	// Hash table that stores all the nodes, each corresponding to a unique vertex of the mesh:
+	std::unordered_map<Eigen::RowVector3d,node_t,vector_hash> node_table_;
 
 	void reset_node_table();
 
@@ -56,10 +73,8 @@ class PathSearch
 	std::function<float(Eigen::MatrixXd,Eigen::MatrixXd)> metric_;
 	std::function<float(Eigen::MatrixXd,Eigen::MatrixXd)> heuristic_;
 
-	// Table that translates the original vertex indices to the corresponding node pointers:
-	std::vector<node_t*> duplicate_table_;
-	// Number of unique vertices in the initial the mesh:
-	size_t n_mesh_vertices_ = 0;
+	// Record of the vertices that have been added but are not part of the initial mesh:
+	std::vector<Eigen::RowVector3d> extra_vertices_;
 };
 
 
