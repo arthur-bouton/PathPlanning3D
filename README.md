@@ -1,8 +1,10 @@
+# Efficient implementation of path planning algorithms in 3D in C++
+
 <p align="center">
 	<img src="snapshot.png?raw=true" height="500">
 </p>
 
-Efficient implementation of path planning algorithms in 3D in C++. The shortest path is computed in real time and displayed in red on the 3D mesh.
+The shortest path is computed in real time and displayed in red on the 3D mesh.
 
 
 ## Installation
