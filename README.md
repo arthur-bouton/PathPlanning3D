@@ -1,14 +1,27 @@
-Tested on Ubuntu 18.04 and requires OpenGL and cmake 3.10+.
+<p align="center">
+	<img src="snapshot.png?raw=true" height="500">
+</p>
+
+Efficient implementation of path planning algorithms in 3D in C++. The shortest path is computed in real time and displayed in red on the 3D mesh.
+
 
 ## Installation
 
-if you don't have OpenGL installed:
+First, you'll need OpenGL:
 
-```sudo apt install xorg-dev libglu1-mesa-dev freeglut3-dev```
+	sudo apt install xorg-dev libglu1-mesa-dev freeglut3-dev zenity
 
-Then build the application:
+Then, build the application:
 
-```mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make
-./main```
+	mkdir build && cd build && cmake .. && make
+
+
+## Usage
+
+Run the application with:
+
+	./main
+
+By default, a simple cube is displayed, whose vertices and faces are defined in [src/mesh_gui_menu.cpp](src/mesh_gui_menu.cpp). To display another mesh, click on `Load` in the top left menu and select a PLY file.
+
+Move the source and target cursors in the top left menu to change the start and goal vertices of the path and see the resulting path being updated in real time.

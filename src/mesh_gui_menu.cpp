@@ -14,7 +14,7 @@
 #define BASELINE_TARGET    5868
 
 
-namespace squaremind {
+namespace PathPlanning3D {
 
 void MeshGuiMenu::init(igl::opengl::glfw::Viewer* viewer) {
     ImGuiMenu::init(viewer);
@@ -174,7 +174,7 @@ bool MeshGuiMenu::updatePath() {
 	if ( surface_points_ )
 		viewer->data( path_id_ ).line_width = 10.0f;
 	else
-		viewer->data( path_id_ ).line_width = 1.0f;
+		viewer->data( path_id_ ).line_width = 10.0f;
 	viewer->data( path_id_ ).is_visible = path_show_;
 	viewer->data( path_id_ ).dirty = igl::opengl::MeshGL::DIRTY_ALL;
 
@@ -297,4 +297,4 @@ void MeshGuiMenu::drawMenu() {
     }
 }
 
-}  // namespace squaremind
+}  // namespace PathPlanning3D

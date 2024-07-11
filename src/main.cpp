@@ -7,7 +7,7 @@
 int main(int /*argc*/, char* /*argv*/[]) {
   igl::opengl::glfw::Viewer viewer;
 
-  squaremind::MeshGuiMenu gui_menu;
+  PathPlanning3D::MeshGuiMenu gui_menu;
   viewer.plugins.push_back(&gui_menu);
   viewer.launch();
 }

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(SquareMindCpp LANGUAGES C CXX)
+project(PathPlanning3D LANGUAGES C CXX)
 
 if(POLICY CMP0072)
   cmake_policy(SET CMP0072 NEW)
