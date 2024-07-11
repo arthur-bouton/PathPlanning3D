@@ -1,7 +1,7 @@
 #ifndef PATH_SEARCH_HH
 #define PATH_SEARCH_HH 
 
-#include <Eigen/Core>
+#include <eigen3/Eigen/Core>
 #include <vector>
 #include <unordered_map>
 #include <set>

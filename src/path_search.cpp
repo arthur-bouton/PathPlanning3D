@@ -1,7 +1,7 @@
 #include "path_search.h"
 
 #include <queue>
-#include <Eigen/Dense>
+#include <eigen3/Eigen/Dense>
 #include <chrono>
 
 

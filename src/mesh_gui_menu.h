@@ -2,7 +2,7 @@
 
 #include <igl/opengl/glfw/imgui/ImGuiMenu.h>
 
-#include <Eigen/Core>
+#include <eigen3/Eigen/Core>
 #include <string>
 
 #include "path_search.h"

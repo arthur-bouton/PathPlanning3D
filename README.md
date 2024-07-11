@@ -7,9 +7,9 @@ Efficient implementation of path planning algorithms in 3D in C++. The shortest 
 
 ## Installation
 
-First, you'll need OpenGL:
+First, you'll need OpenGL and Eigen:
 
-	sudo apt install xorg-dev libglu1-mesa-dev freeglut3-dev zenity
+	sudo apt install xorg-dev libglu1-mesa-dev freeglut3-dev zenity libeigen3-dev
 
 Then, build the application:
 

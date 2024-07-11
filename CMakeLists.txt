@@ -21,9 +21,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_FOLDER "third_party")
 find_package(OpenGL REQUIRED QUIET)
 find_package(Threads REQUIRED QUIET)
+find_package(Eigen3 REQUIRED QUIET)
 
 # Third party dependencies
-add_subdirectory(third_party/eigen)
 add_subdirectory(third_party/glad)
 add_subdirectory(third_party/glfw)
 add_subdirectory(third_party/imgui)
