@@ -22,6 +22,6 @@ Run the application with:
 
 	./main
 
-By default, a simple cube is displayed, whose vertices and faces are defined in [src/mesh_gui_menu.cpp](src/mesh_gui_menu.cpp). To display another mesh, click on `Load` in the top left menu and select a PLY file.
+By default, a simple cube is displayed, whose vertices and faces are defined in [src/mesh_gui_menu.cpp](src/mesh_gui_menu.cpp). To display another mesh, click on `Load` in the top left menu and select a PLY file (examples can be found in [meshes](meshes)).
 
 Move the source and target cursors in the top left menu to change the start and goal vertices of the path and see the resulting path being updated in real time.
