@@ -16,6 +16,10 @@
 
 namespace PathPlanning3D {
 
+MeshGuiMenu::MeshGuiMenu(std::string filename) {
+	filename_ = filename;
+}
+
 void MeshGuiMenu::init(igl::opengl::glfw::Viewer* viewer) {
     ImGuiMenu::init(viewer);
     callback_draw_viewer_menu = [ this ](){ drawMenu(); };
@@ -40,6 +44,9 @@ void MeshGuiMenu::init(igl::opengl::glfw::Viewer* viewer) {
     mesh_id_ = viewer->append_mesh(true);
     path_id_ = viewer->append_mesh(true);
     updateMesh();
+
+	if (filename_.length() > 0)
+		load(filename_);
 }
 
 bool MeshGuiMenu::updateMesh() {
@@ -201,6 +208,7 @@ bool MeshGuiMenu::load(std::string filename) {
     viewer->data(mesh_id_).clear();
     igl::readPLY(filename, mesh_vertices_, mesh_faces_);
     std::cout << "[MeshGuiMenu::load] Loaded model: " << filename << std::endl;
+	filename_ = filename;
     return updateMesh();
 }
 

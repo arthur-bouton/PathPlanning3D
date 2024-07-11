@@ -14,6 +14,7 @@ namespace iggui = igl::opengl::glfw::imgui;
 
 class MeshGuiMenu : public iggui::ImGuiMenu {
    public:
+	MeshGuiMenu(std::string filename="");
     void init(igl::opengl::glfw::Viewer* viewer) override;
     bool load(std::string filename) override;
 
@@ -28,6 +29,7 @@ class MeshGuiMenu : public iggui::ImGuiMenu {
     void switchOrientation();
 
     // Mesh
+	std::string filename_;
     int mesh_id_ = -1;
     Eigen::MatrixXd mesh_vertices_;
     Eigen::MatrixXi mesh_faces_;
